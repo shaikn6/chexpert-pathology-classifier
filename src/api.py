@@ -19,13 +19,16 @@ import base64
 import io
 import logging
 import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
 import torch
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from PIL import Image
 from pydantic import BaseModel, Field, field_validator
 
@@ -34,6 +37,39 @@ from src.data import get_val_transforms
 from src.model import CheXpertClassifier, build_model
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Security configuration
+# ---------------------------------------------------------------------------
+
+# Maximum decoded image size: 20 MB uncompressed (prevents memory DoS)
+MAX_IMAGE_BYTES: int = 20 * 1024 * 1024
+
+# API key authentication — set API_KEY env var in production.
+# If not set, a random key is generated per process (effectively disabling
+# unauthenticated access while still allowing tests that inject _state directly).
+_API_KEY: str = os.environ.get("API_KEY", secrets.token_hex(32))
+
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def _require_api_key(api_key: Optional[str] = Depends(_api_key_header)) -> None:
+    """Dependency that validates the X-API-Key header."""
+    if not api_key or not secrets.compare_digest(api_key, _API_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key.",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+
+
+# Allowed CORS origins — override with CORS_ORIGINS env var (comma-separated)
+_raw_origins = os.environ.get("CORS_ORIGINS", "")
+ALLOWED_ORIGINS: list[str] = (
+    [o.strip() for o in _raw_origins.split(",") if o.strip()]
+    if _raw_origins
+    else []
+)
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
@@ -58,6 +94,13 @@ class PredictRequest(BaseModel):
     def validate_non_empty(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("image_b64 must not be empty.")
+        # Strip data URI prefix before size check
+        raw_b64 = v.split(",", 1)[1] if "," in v else v
+        # Reject oversized payloads before decoding (base64 overhead ~4/3)
+        if len(raw_b64) > MAX_IMAGE_BYTES * 4 // 3 + 64:
+            raise ValueError(
+                f"image_b64 exceeds maximum allowed size ({MAX_IMAGE_BYTES // (1024 * 1024)} MB)."
+            )
         return v
 
 
@@ -78,8 +121,20 @@ class PredictResponse(BaseModel):
 
 class BatchPredictRequest(BaseModel):
     """Batch prediction request (up to 16 images)."""
-    images_b64: list[str] = Field(..., max_length=16)
+    images_b64: list[str] = Field(..., min_length=1, max_length=16)
     top_k: int = Field(default=3, ge=1, le=14)
+
+    @field_validator("images_b64", mode="before")
+    @classmethod
+    def validate_each_image(cls, v: list) -> list:
+        for item in v:
+            raw_b64 = item.split(",", 1)[1] if "," in item else item
+            if len(raw_b64) > MAX_IMAGE_BYTES * 4 // 3 + 64:
+                raise ValueError(
+                    f"One or more images exceed the maximum allowed size "
+                    f"({MAX_IMAGE_BYTES // (1024 * 1024)} MB)."
+                )
+        return v
 
 
 class BatchPredictResponse(BaseModel):
@@ -105,7 +160,9 @@ async def lifespan(app: FastAPI):
     model, device = build_model(pretrained=pretrained, freeze_early=False)
 
     if checkpoint_path and Path(checkpoint_path).exists():
-        ckpt = torch.load(checkpoint_path, map_location=device)
+        # weights_only=True prevents arbitrary code execution via malicious
+        # pickle payloads embedded in checkpoint files (CWE-502).
+        ckpt = torch.load(checkpoint_path, map_location=device, weights_only=True)
         state_dict = ckpt.get("model_state_dict", ckpt)
         model.load_state_dict(state_dict)
         logger.info("Loaded checkpoint from %s", checkpoint_path)
@@ -136,9 +193,36 @@ app = FastAPI(
         "Multi-label chest X-ray pathology classification using DenseNet121. "
         "Identifies 14 radiological findings from the CheXpert label set."
     ),
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# CORS — only allow explicitly configured origins (deny all by default)
+# ---------------------------------------------------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["X-API-Key", "Content-Type"],
+)
+
+
+# ---------------------------------------------------------------------------
+# Security headers middleware
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next) -> Response:
+    """Attach OWASP-recommended security headers to every response."""
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -161,14 +245,26 @@ def _decode_image(image_b64: str) -> Image.Image:
         # Strip data URI prefix if present
         if "," in image_b64:
             image_b64 = image_b64.split(",", 1)[1]
-        raw = base64.b64decode(image_b64)
+        raw = base64.b64decode(image_b64, validate=True)
+        # Enforce decoded size limit before PIL parses (prevents decompression bombs)
+        if len(raw) > MAX_IMAGE_BYTES:
+            raise ValueError("Decoded image exceeds maximum permitted size.")
+        image = Image.open(io.BytesIO(raw))
+        # Verify the image is loadable before trusting it (catches truncated files)
+        image.verify()
+        # Re-open after verify() (verify() consumes the stream)
         image = Image.open(io.BytesIO(raw)).convert("RGB")
         return image
-    except Exception as exc:
+    except HTTPException:
+        raise
+    except Exception:
+        # Do not propagate internal exception details to the caller — they may
+        # reveal file paths, library internals, or parser state.
+        logger.debug("Image decode failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid image data: {exc}",
-        ) from exc
+            detail="Invalid image data: unable to decode the provided image.",
+        )
 
 
 def _run_single_prediction(image_b64: str, top_k: int) -> tuple[dict[str, float], list[LabelPrediction], float]:
@@ -223,7 +319,12 @@ async def get_labels() -> dict[str, list[str]]:
     return {"labels": CHEXPERT_LABELS}
 
 
-@app.post("/predict", response_model=PredictResponse, tags=["Inference"])
+@app.post(
+    "/predict",
+    response_model=PredictResponse,
+    tags=["Inference"],
+    dependencies=[Depends(_require_api_key)],
+)
 async def predict(request: PredictRequest) -> PredictResponse:
     """Classify a single chest X-ray image.
 
@@ -252,7 +353,12 @@ async def predict(request: PredictRequest) -> PredictResponse:
     )
 
 
-@app.post("/predict/batch", response_model=BatchPredictResponse, tags=["Inference"])
+@app.post(
+    "/predict/batch",
+    response_model=BatchPredictResponse,
+    tags=["Inference"],
+    dependencies=[Depends(_require_api_key)],
+)
 async def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
     """Classify a batch of chest X-ray images (up to 16).
 
@@ -266,11 +372,6 @@ async def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Model not loaded.",
-        )
-    if not request.images_b64:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="images_b64 must not be empty.",
         )
 
     t_batch_start = time.perf_counter()

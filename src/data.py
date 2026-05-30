@@ -109,7 +109,14 @@ class CheXpertDataset(Dataset):
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         row = self.df.iloc[idx]
-        image_path = self.data_root / row["Path"]
+        # Resolve the full path and verify it stays within data_root to prevent
+        # path traversal via malicious CSV entries (e.g. "../../etc/passwd").
+        candidate = (self.data_root / row["Path"]).resolve()
+        if not str(candidate).startswith(str(self.data_root.resolve())):
+            raise ValueError(
+                f"Image path escapes data_root: {row['Path']!r}"
+            )
+        image_path = candidate
         image = Image.open(image_path).convert("RGB")
         if self.transform:
             image = self.transform(image)

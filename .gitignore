@@ -86,6 +86,7 @@ cython_debug/
 # Project specific
 data/
 mlruns/
+mlflow.db
 results/*.json
 results/gradcam/*.png
 checkpoints/

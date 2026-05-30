@@ -38,8 +38,20 @@ def load_dicom(path: str) -> pydicom.Dataset:
 
     Returns:
         pydicom Dataset object with all DICOM tags and pixel data.
+
+    Raises:
+        ValueError: If the file cannot be read or parsed as DICOM.
+        FileNotFoundError: If the path does not exist.
     """
-    return pydicom.dcmread(path)
+    try:
+        return pydicom.dcmread(path)
+    except FileNotFoundError:
+        raise
+    except Exception as exc:
+        # Malicious or malformed DICOM files can raise a wide variety of
+        # exceptions from pydicom internals. Re-raise as ValueError so callers
+        # get a stable, typed error without leaking parser details.
+        raise ValueError(f"Failed to read DICOM file: {path!r}") from exc
 
 
 def apply_windowing(
@@ -88,7 +100,13 @@ def dicom_to_tensor(dcm: pydicom.Dataset) -> torch.Tensor:
     Returns:
         Float tensor of shape (1, 320, 320) ready for model inference.
     """
-    pixel_array = dcm.pixel_array.astype(np.float32)
+    try:
+        pixel_array = dcm.pixel_array.astype(np.float32)
+    except Exception as exc:
+        # Malicious DICOM files can embed pixel data that triggers crashes inside
+        # pydicom's decompressor (e.g. crafted JPEG2000 or RLE streams).
+        # Catching here prevents a single bad file from crashing the server process.
+        raise ValueError("Failed to extract pixel data from DICOM dataset.") from exc
 
     # Read window/level tags; fall back to lung window preset
     try:
@@ -98,18 +116,22 @@ def dicom_to_tensor(dcm: pydicom.Dataset) -> torch.Tensor:
         wc = DEFAULT_WINDOW_CENTER
         ww = DEFAULT_WINDOW_WIDTH
 
-    windowed = apply_windowing(pixel_array, wc, ww)
+    try:
+        windowed = apply_windowing(pixel_array, wc, ww)
 
-    # Convert to PIL Image (grayscale)
-    pil_img = Image.fromarray(windowed, mode="L")
+        # Convert to PIL Image (grayscale)
+        pil_img = Image.fromarray(windowed, mode="L")
 
-    transform = transforms.Compose([
-        transforms.Resize((TARGET_SIZE, TARGET_SIZE)),
-        transforms.ToTensor(),           # → (1, H, W) in [0, 1]
-        transforms.Normalize(mean=GRAYSCALE_MEAN, std=GRAYSCALE_STD),
-    ])
+        transform = transforms.Compose([
+            transforms.Resize((TARGET_SIZE, TARGET_SIZE)),
+            transforms.ToTensor(),           # → (1, H, W) in [0, 1]
+            transforms.Normalize(mean=GRAYSCALE_MEAN, std=GRAYSCALE_STD),
+        ])
 
-    tensor = transform(pil_img)  # (1, 320, 320)
+        tensor = transform(pil_img)  # (1, 320, 320)
+    except Exception as exc:
+        raise ValueError("Failed to convert DICOM pixel data to tensor.") from exc
+
     return tensor
 
 
