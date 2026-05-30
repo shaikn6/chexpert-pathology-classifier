@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here.
 
+## v2.0.0 — 2026-05-30
+### Added
+- Monte Carlo Dropout uncertainty quantification: 30 stochastic forward passes → mean, std, 95% CI per label
+- DICOM input pipeline: parse .dcm files with window/level normalization
+- EfficientNet-B4 backbone: second model option with 1792-dim head, model comparison utility
+- Clinical report generator: text report with findings, confidence levels, radiologist recommendations
+
 ## v1.0.0 — 2026-05-30
 
 - DenseNet121 multi-label classifier on CheXpert 14 labels

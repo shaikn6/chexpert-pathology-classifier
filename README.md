@@ -7,6 +7,13 @@
 
 Multi-label chest X-ray pathology classification on the CheXpert dataset using DenseNet121 with Grad-CAM saliency visualization. Benchmarked against Irvin et al. 2019 (Stanford CheXpert paper).
 
+## What's New in V2
+
+- **Monte Carlo Dropout Uncertainty Quantification** — 30 stochastic forward passes with dropout enabled at inference time, producing per-label mean predictions, standard deviations, and 95% confidence intervals to flag high-uncertainty findings for radiologist review.
+- **DICOM Input Pipeline** — Native `.dcm` file support with window/level normalization (WindowCenter/WindowWidth DICOM tags), automatic fallback to the lung window preset (WC=-600, WW=1500), and conversion to normalized tensors.
+- **EfficientNet-B4 Backbone** — A second model option with a 1792-dimensional feature head and a model comparison utility that reports per-label AUC deltas between any two classifiers.
+- **Clinical Report Generator** — Structured plain-text radiology reports with labeled findings above a 30% confidence threshold, per-finding uncertainty tiers, impression summary, and a mandatory AI disclaimer.
+
 ## About
 
 This project implements a clinically-oriented multi-label classifier for 14 radiological findings in frontal chest X-rays. The model uses a DenseNet121 backbone pretrained on ImageNet with selective layer fine-tuning, trained using BCEWithLogitsLoss with class-weighted positive sampling to handle the severe label imbalance in real clinical data.
