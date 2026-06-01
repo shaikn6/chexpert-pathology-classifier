@@ -24,9 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install CPU-only torch to avoid OOM in CI (no CUDA needed for unit tests)
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-          pip install -r requirements.txt --no-deps
           pip install -r requirements.txt
 
       - name: Lint
@@ -37,4 +35,5 @@ jobs:
 
       - name: Test with coverage
         run: |
-          pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80
+          pip install pytest pytest-cov
+          PYTHONPATH=. pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80
