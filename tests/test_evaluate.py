@@ -9,7 +9,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import torch
 
 from src.constants import CHEXPERT_LABELS, PUBLISHED_AUCS, NUM_CLASSES
 from src.evaluate import (

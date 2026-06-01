@@ -9,8 +9,6 @@ DICOM windowing maps raw Hounsfield-like pixel values to a displayable
 
 from __future__ import annotations
 
-import io
-import struct
 
 import numpy as np
 import pydicom

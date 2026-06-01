@@ -22,7 +22,7 @@ import torch
 import torch.nn as nn
 from PIL import Image
 
-from src.constants import CHEXPERT_LABELS, IMAGE_SIZE, IMAGENET_MEAN, IMAGENET_STD
+from src.constants import CHEXPERT_LABELS, IMAGENET_MEAN, IMAGENET_STD
 
 logger = logging.getLogger(__name__)
 

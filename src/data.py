@@ -12,8 +12,6 @@ CheXpert label convention:
 
 from __future__ import annotations
 
-import os
-import io
 from pathlib import Path
 from typing import Callable, Optional
 

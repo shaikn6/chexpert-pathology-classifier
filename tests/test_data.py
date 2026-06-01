@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 import torch
-from torch.utils.data import DataLoader
 
-from src.constants import CHEXPERT_LABELS, IMAGE_SIZE, NUM_CLASSES
+from src.constants import CHEXPERT_LABELS, NUM_CLASSES
 from src.data import (
     MockCheXpertDataset,
     build_dataloaders,

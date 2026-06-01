@@ -10,9 +10,7 @@ Features:
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -25,16 +23,12 @@ from sklearn.metrics import roc_auc_score
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from src.constants import (
-    CHEXPERT_LABELS,
-    DEFAULT_BATCH_SIZE,
     DEFAULT_EPOCHS,
     DEFAULT_LR,
     DEFAULT_WEIGHT_DECAY,
     EARLY_STOP_PATIENCE,
-    NUM_CLASSES,
 )
 from src.data import build_mock_dataloaders, compute_class_weights
 from src.model import CheXpertClassifier, build_model

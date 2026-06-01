@@ -12,9 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
-from typing import Optional
 
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend for CI
@@ -23,10 +21,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from scipy.stats import chi2_contingency
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
-    average_precision_score,
     roc_auc_score,
     roc_curve,
 )

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import torch
 
-from src.constants import CHEXPERT_LABELS, IMAGE_SIZE, NUM_CLASSES
+from src.constants import NUM_CLASSES
 from src.gradcam import (
     GradCAM,
     _denormalize_image,

@@ -274,7 +274,6 @@ class TestDicomToTensor:
 
     def test_fallback_window_when_tags_missing(self):
         """Dataset without WindowCenter/Width should still produce (1,320,320)."""
-        import pydicom
         dcm = create_synthetic_dicom()
         # Remove window tags to test fallback
         if hasattr(dcm, "WindowCenter"):
