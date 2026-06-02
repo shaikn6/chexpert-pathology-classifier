@@ -1,0 +1,375 @@
+/* ────────────────────────────────────────────────────────────────────────────
+   CheXpert Dashboard — Dark Clinical Theme
+   Palette: navy bg · teal accent · slate text
+   ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --color-bg:           oklch(12% 0.02 240);
+  --color-surface:      oklch(16% 0.025 240);
+  --color-surface-2:    oklch(20% 0.03 240);
+  --color-border:       oklch(28% 0.03 240);
+  --color-text:         oklch(88% 0.01 240);
+  --color-text-muted:   oklch(60% 0.015 240);
+  --color-accent:       oklch(72% 0.16 185);   /* teal */
+  --color-positive:     oklch(65% 0.18 25);    /* red for positive finding */
+  --color-uncertain:    oklch(78% 0.16 75);    /* amber for uncertain */
+  --color-negative:     oklch(72% 0.14 185);   /* teal for negative */
+
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+
+  --space-xs:   4px;
+  --space-sm:   8px;
+  --space-md:   16px;
+  --space-lg:   24px;
+  --space-xl:   40px;
+
+  --duration-fast:    150ms;
+  --duration-normal:  300ms;
+  --ease-out-expo:    cubic-bezier(0.16, 1, 0.3, 1);
+
+  --font-sans:  'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  min-height: 100dvh;
+}
+
+/* ── App Layout ─────────────────────────────────────────────────────────── */
+
+.app { display: flex; flex-direction: column; min-height: 100dvh; }
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-sm) var(--space-xl);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  font-size: 1.5rem;
+  color: var(--color-accent);
+}
+
+.app-header h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.header-nav { display: flex; gap: var(--space-xs); margin-left: auto; }
+
+.nav-btn {
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color var(--duration-fast), border-color var(--duration-fast), background var(--duration-fast);
+}
+
+.nav-btn:hover { color: var(--color-text); background: var(--color-surface-2); }
+
+.nav-btn.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: oklch(72% 0.16 185 / 0.1);
+}
+
+.model-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: oklch(72% 0.16 185 / 0.15);
+  color: var(--color-accent);
+  border: 1px solid oklch(72% 0.16 185 / 0.3);
+}
+
+.app-main { flex: 1; padding: var(--space-xl); max-width: 1440px; margin: 0 auto; width: 100%; }
+
+/* ── Upload View ─────────────────────────────────────────────────────────── */
+
+.view-upload h2 { font-size: 1.5rem; margin-bottom: var(--space-lg); }
+
+.drop-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  min-height: 280px;
+  transition: border-color var(--duration-normal) var(--ease-out-expo),
+              background var(--duration-normal) var(--ease-out-expo);
+  cursor: pointer;
+}
+
+.drop-zone:hover, .drop-zone.uploading {
+  border-color: var(--color-accent);
+  background: oklch(72% 0.16 185 / 0.04);
+}
+
+.drop-icon { font-size: 3rem; color: var(--color-accent); opacity: 0.6; }
+
+.drop-primary { font-size: 1.125rem; font-weight: 500; }
+.drop-secondary { font-size: 0.875rem; color: var(--color-text-muted); }
+
+.progress-bar {
+  width: 320px;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 3px;
+  transition: width var(--duration-fast);
+}
+
+.upload-error { color: var(--color-positive); text-align: center; }
+.upload-error button {
+  margin-top: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-positive);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-positive);
+  cursor: pointer;
+}
+
+/* ── Results View ─────────────────────────────────────────────────────────── */
+
+.view-results h2 {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-lg);
+  font-weight: 600;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(400px, 1.4fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .results-grid { grid-template-columns: 1fr; }
+}
+
+.results-image-panel, .results-chart-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.study-meta {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ── GradCAM ─────────────────────────────────────────────────────────────── */
+
+.gradcam-container { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+.gradcam-controls {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.overlay-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color var(--duration-fast), border-color var(--duration-fast);
+}
+
+.overlay-btn.active, .overlay-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.opacity-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-left: var(--space-sm);
+}
+
+.gradcam-canvas {
+  width: 100%;
+  border-radius: var(--radius-md);
+  display: block;
+  background: oklch(8% 0.01 240);
+}
+
+/* ── Confidence Chart ───────────────────────────────────────────────────── */
+
+.confidence-chart { width: 100%; }
+.chart-title { font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm); }
+
+.chart-legend {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 0.75rem;
+  margin-bottom: var(--space-md);
+}
+
+.legend-item.low    { color: #2dd4bf; }
+.legend-item.uncertain { color: #fbbf24; }
+.legend-item.high   { color: #f87171; }
+
+.chart-tooltip {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.8rem;
+  line-height: 1.8;
+}
+
+.tooltip-label { font-weight: 600; margin-bottom: 4px; color: var(--color-accent); }
+
+/* ── History View ─────────────────────────────────────────────────────────── */
+
+.view-history h2 { font-size: 1.5rem; margin-bottom: var(--space-lg); }
+
+.history-stats {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 100px;
+}
+
+.stat-value { font-size: 2rem; font-weight: 700; color: var(--color-accent); line-height: 1; }
+.stat-label { font-size: 0.75rem; color: var(--color-text-muted); margin-top: 4px; }
+
+.study-list { display: flex; flex-direction: column; gap: var(--space-md); }
+
+/* ── Study Card ─────────────────────────────────────────────────────────── */
+
+.study-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+
+.study-card:hover { border-color: var(--color-accent); background: var(--color-surface-2); }
+.study-card.selected { border-color: var(--color-accent); background: oklch(72% 0.16 185 / 0.06); }
+.study-card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-sm); }
+
+.study-id { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--color-accent); display: block; }
+.patient-id { font-size: 0.75rem; color: var(--color-text-muted); }
+
+.card-meta { display: flex; gap: var(--space-sm); align-items: center; }
+
+.view-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.study-date { font-size: 0.8rem; color: var(--color-text-muted); }
+
+.label-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  list-style: none;
+  margin-bottom: var(--space-sm);
+}
+
+.label-chip {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.badge-positive  { background: oklch(65% 0.18 25  / 0.15); border-color: oklch(65% 0.18 25  / 0.4); color: #f87171; }
+.badge-uncertain { background: oklch(78% 0.16 75  / 0.15); border-color: oklch(78% 0.16 75  / 0.4); color: #fbbf24; }
+.badge-negative  { background: oklch(72% 0.14 185 / 0.1);  border-color: oklch(72% 0.14 185 / 0.3); color: #2dd4bf; }
+
+.chip-prob { font-family: var(--font-mono); font-size: 0.7rem; opacity: 0.8; }
+
+.card-footer {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  margin-top: var(--space-xs);
+}
+
+.validated-badge {
+  color: var(--color-accent);
+  border: 1px solid oklch(72% 0.16 185 / 0.3);
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+}
+
+.card-unanalysed { font-size: 0.8rem; color: var(--color-text-muted); font-style: italic; margin-top: var(--space-xs); }
